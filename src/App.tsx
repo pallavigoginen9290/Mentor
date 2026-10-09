@@ -18,6 +18,7 @@ import {
   INITIAL_BADGES,
   INITIAL_VOCABULARY,
 } from './data/initialData';
+import { SCENARIOS } from './data/scenarios';
 import { Header } from './components/layout/Header';
 import { Navigation } from './components/layout/Navigation';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -142,9 +143,30 @@ export function App() {
     window.location.reload();
   };
 
+  const [navNonce, setNavNonce] = useState(0);
+
   const handleStartScenarioById = (scenarioId: string) => {
+    const sc = SCENARIOS.find((s) => s.id === scenarioId);
     setTargetScenarioId(scenarioId);
-    setActiveTab('practice');
+    if (sc) {
+      if (sc.category === 'workplace' || sc.itSpecific) {
+        setTargetMode('workplace');
+        setActiveTab('workplace');
+      } else if (sc.category === 'interview') {
+        setTargetMode('interview');
+        setActiveTab('interview');
+      } else if (sc.category === 'meeting') {
+        setTargetMode('meeting');
+        setActiveTab('meeting');
+      } else {
+        setTargetMode('daily');
+        setActiveTab('practice');
+      }
+    } else {
+      setTargetMode('daily');
+      setActiveTab('practice');
+    }
+    setNavNonce((prev) => prev + 1);
   };
 
   const handleStartMysteryScenario = () => {
@@ -167,18 +189,20 @@ export function App() {
     });
   };
 
-  // Switch navigation tabs with contextual mode
+  // Switch navigation tabs with contextual mode and instant refresh
   const handleSelectTab = (tab: NavigationTab) => {
     setActiveTab(tab);
-    if (tab === 'workplace') {
+    setMobileMenuOpen(false);
+    setTargetScenarioId(undefined);
+    setNavNonce((prev) => prev + 1);
+    if (tab === 'practice') {
+      setTargetMode('daily');
+    } else if (tab === 'workplace') {
       setTargetMode('workplace');
-      setTargetScenarioId(undefined);
     } else if (tab === 'interview') {
       setTargetMode('interview');
-      setTargetScenarioId(undefined);
     } else if (tab === 'meeting') {
       setTargetMode('meeting');
-      setTargetScenarioId(undefined);
     }
   };
 
@@ -246,6 +270,7 @@ export function App() {
             activeTab === 'interview' ||
             activeTab === 'meeting') && (
             <PracticeView
+              key={`${activeTab}-${navNonce}`}
               initialScenarioId={targetScenarioId}
               initialMode={
                 activeTab === 'workplace'
@@ -254,7 +279,7 @@ export function App() {
                   ? 'interview'
                   : activeTab === 'meeting'
                   ? 'meeting'
-                  : targetMode
+                  : 'daily'
               }
               settings={settings}
               user={user}

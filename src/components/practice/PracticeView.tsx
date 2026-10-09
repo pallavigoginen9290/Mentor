@@ -28,6 +28,7 @@ import {
   Zap,
   Flame,
   CheckCircle2,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface PracticeViewProps {
@@ -69,15 +70,26 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // When initialScenarioId changes from outside
+  // Sync with initialMode & initialScenarioId changes
   useEffect(() => {
+    setActiveCategoryFilter(initialMode);
     if (initialScenarioId) {
       const found = SCENARIOS.find((s) => s.id === initialScenarioId);
       if (found) {
         startScenario(found);
       }
+    } else {
+      setSelectedScenario(null);
     }
-  }, [initialScenarioId]);
+  }, [initialMode, initialScenarioId]);
+
+  // Cleanup speech synthesis & recognition on unmount
+  useEffect(() => {
+    return () => {
+      speechService.stopSpeaking();
+      speechService.stopListening();
+    };
+  }, []);
 
   // Scroll to chat bottom
   useEffect(() => {
@@ -295,6 +307,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             {/* Category Filter Pills */}
             <div className="flex flex-wrap gap-2">
               {[
+                { id: 'all', label: 'All Arenas', icon: LayoutGrid },
                 { id: 'workplace', label: 'Workplace & IT', icon: Briefcase },
                 { id: 'interview', label: 'Interview', icon: Award },
                 { id: 'difficult', label: 'Difficult Chats', icon: Zap },

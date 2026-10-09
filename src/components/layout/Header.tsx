@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   settings,
   activeTab: _activeTab,
-  onSelectTab: _onSelectTab,
+  onSelectTab,
   onToggleSound,
   mobileMenuOpen,
   onToggleMobileMenu,
@@ -37,7 +37,11 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Branding */}
-          <div className="flex items-center space-x-3">
+          <div
+            onClick={() => onSelectTab('dashboard')}
+            className="flex items-center space-x-3 cursor-pointer group"
+            title="Return to Dashboard"
+          >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-teal-400 flex items-center justify-center shadow-md shadow-indigo-500/20 text-white font-bold">
               <Compass className="w-6 h-6 animate-pulse-subtle" />
             </div>

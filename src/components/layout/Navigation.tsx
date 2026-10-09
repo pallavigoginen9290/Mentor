@@ -69,6 +69,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   isActive
@@ -137,6 +138,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   return (
                     <button
                       key={item.id}
+                      type="button"
                       onClick={() => handleNavClick(item.id)}
                       className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-all ${
                         isActive
