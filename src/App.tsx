@@ -237,6 +237,7 @@ export function App() {
                   setActiveFeedback({ feedback: s.feedback, xpEarned: s.xpEarned });
                 }
               }}
+              onRefreshState={refreshState}
             />
           )}
 

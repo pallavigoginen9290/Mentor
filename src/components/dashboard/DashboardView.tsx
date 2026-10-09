@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile, PracticeSession, NavigationTab, ScoresBreakdown } from '../../types';
 import { getRecommendations } from '../../services/recommendationEngine';
+import { speechService } from '../../services/speechService';
+import { storageService } from '../../services/storageService';
+import {
+  getDailyInspiration,
+  VOCAL_WARM_UP_STEPS,
+} from '../../data/dailyInspiration';
+import confetti from 'canvas-confetti';
 import {
   Flame,
   Award,
@@ -16,6 +23,16 @@ import {
   CheckCircle2,
   HelpCircle,
   Play,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  Copy,
+  Check,
+  BookOpen,
+  Lightbulb,
+  Mic,
+  Compass,
+  X,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -25,6 +42,7 @@ interface DashboardViewProps {
   onStartScenarioById: (scenarioId: string) => void;
   onStartMystery: () => void;
   onOpenFeedback: (session: PracticeSession) => void;
+  onRefreshState?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -34,10 +52,140 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onStartScenarioById,
   onStartMystery,
   onOpenFeedback,
+  onRefreshState,
 }) => {
   // Determine greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // Daily Inspiration & Quote State
+  const [quoteOffset, setQuoteOffset] = useState(0);
+  const [isSpeakingQuote, setIsSpeakingQuote] = useState(false);
+  const [isSpeakingWord, setIsSpeakingWord] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [hasClaimedQuoteXp, setHasClaimedQuoteXp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const today = new Date().toISOString().split('T')[0];
+    return localStorage.getItem(`ai_mentor_quote_claimed_${today}`) === 'true';
+  });
+  const [hasSavedWord, setHasSavedWord] = useState(false);
+
+  // 60-Second Vocal Warm-Up Modal State
+  const [isWarmUpModalOpen, setIsWarmUpModalOpen] = useState(false);
+  const [warmUpStepIdx, setWarmUpStepIdx] = useState(0);
+  const [warmUpTimer, setWarmUpTimer] = useState(VOCAL_WARM_UP_STEPS[0].durationSeconds);
+  const [isWarmUpTimerActive, setIsWarmUpTimerActive] = useState(false);
+  const [warmUpCompleted, setWarmUpCompleted] = useState(false);
+
+  const { quote: dailyQuote, word: dailyWord, habit: dailyHabit, dayString } = getDailyInspiration(quoteOffset);
+
+  // Timer effect for vocal warm-up
+  useEffect(() => {
+    if (!isWarmUpTimerActive || warmUpTimer <= 0) return;
+    const interval = setInterval(() => {
+      setWarmUpTimer((t) => {
+        if (t <= 1) {
+          setIsWarmUpTimerActive(false);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isWarmUpTimerActive, warmUpTimer]);
+
+  const handleNextQuote = () => {
+    speechService.stopSpeaking();
+    setIsSpeakingQuote(false);
+    setQuoteOffset((prev) => prev + 1);
+  };
+
+  const handleToggleSpeechQuote = () => {
+    if (isSpeakingQuote) {
+      speechService.stopSpeaking();
+      setIsSpeakingQuote(false);
+    } else {
+      setIsSpeakingQuote(true);
+      speechService.speak(
+        `${dailyQuote.quote}. By ${dailyQuote.author}. ${dailyQuote.energyBoostReason}`,
+        0.95,
+        undefined,
+        () => setIsSpeakingQuote(false),
+        () => setIsSpeakingQuote(false)
+      );
+    }
+  };
+
+  const handleCopyQuote = () => {
+    navigator.clipboard.writeText(`"${dailyQuote.quote}" — ${dailyQuote.author}`);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleClaimQuoteXp = () => {
+    if (hasClaimedQuoteXp) return;
+    storageService.addXp(10);
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`ai_mentor_quote_claimed_${today}`, 'true');
+    setHasClaimedQuoteXp(true);
+    onRefreshState?.();
+    try {
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.25 } });
+    } catch (e) {}
+  };
+
+  const handlePronounceWord = () => {
+    if (isSpeakingWord) {
+      speechService.stopSpeaking();
+      setIsSpeakingWord(false);
+    } else {
+      setIsSpeakingWord(true);
+      speechService.speak(
+        `${dailyWord.word}. ${dailyWord.partOfSpeech}. ${dailyWord.meaning}. For example: ${dailyWord.workplaceExample}`,
+        0.9,
+        undefined,
+        () => setIsSpeakingWord(false),
+        () => setIsSpeakingWord(false)
+      );
+    }
+  };
+
+  const handleSaveWordToVault = () => {
+    if (hasSavedWord) return;
+    storageService.addVocabularyItems([
+      {
+        word: dailyWord.word,
+        meaning: dailyWord.meaning,
+        simpleExample: dailyWord.casualExample,
+        professionalExample: dailyWord.workplaceExample,
+      },
+    ]);
+    storageService.addXp(10);
+    setHasSavedWord(true);
+    onRefreshState?.();
+    try {
+      confetti({ particleCount: 65, spread: 70, origin: { y: 0.45 } });
+    } catch (e) {}
+  };
+
+  const startWarmUpStep = (idx: number) => {
+    setWarmUpStepIdx(idx);
+    setWarmUpTimer(VOCAL_WARM_UP_STEPS[idx].durationSeconds);
+    setIsWarmUpTimerActive(true);
+  };
+
+  const handleFinishWarmUp = () => {
+    setWarmUpCompleted(true);
+    setIsWarmUpTimerActive(false);
+    storageService.addXp(15);
+    onRefreshState?.();
+    try {
+      confetti({ particleCount: 90, spread: 80, origin: { y: 0.5 } });
+    } catch (e) {}
+    setTimeout(() => {
+      setIsWarmUpModalOpen(false);
+    }, 1500);
+  };
 
   // Compute recommendation
   const mockScores: ScoresBreakdown = {
@@ -56,6 +204,121 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* 0. QUOTATION OF THE DAY (Top Daily Motivation & Confidence Booster) */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/30 shadow-2xl p-6 sm:p-8 text-white transition-all">
+        {/* Decorative background glows */}
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-5">
+          {/* Top Bar: Date, Theme & Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+            <div className="flex items-center space-x-2">
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300 text-xs font-bold tracking-wide">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Daily Inspiration • {dayString}</span>
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-indigo-200 text-xs font-semibold">
+                {dailyQuote.category}
+              </span>
+            </div>
+
+            {/* Quick Actions (Listen, Next, Copy) */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleToggleSpeechQuote}
+                title={isSpeakingQuote ? 'Stop reading' : 'Listen aloud'}
+                className={`p-2 rounded-xl border text-xs font-semibold transition flex items-center space-x-1.5 ${
+                  isSpeakingQuote
+                    ? 'bg-teal-500 text-white border-teal-400 shadow-md animate-pulse'
+                    : 'bg-white/10 hover:bg-white/20 border-white/15 text-indigo-200'
+                }`}
+              >
+                {isSpeakingQuote ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isSpeakingQuote ? 'Playing' : 'Listen'}</span>
+              </button>
+
+              <button
+                onClick={handleNextQuote}
+                title="Get another quote for more energy"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition flex items-center space-x-1.5"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Next</span>
+              </button>
+
+              <button
+                onClick={handleCopyQuote}
+                title="Copy quote"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition"
+              >
+                {isCopied ? <Check className="w-4 h-4 text-teal-400" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Main Quote Presentation */}
+          <div className="space-y-3">
+            <div className="text-4xl sm:text-5xl font-serif text-amber-400/80 leading-none select-none">“</div>
+            <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug sm:leading-tight">
+              {dailyQuote.quote}
+            </blockquote>
+            <div className="flex items-center space-x-2 pt-1 text-sm sm:text-base font-semibold text-teal-300">
+              <span>— {dailyQuote.author}</span>
+              <span className="text-white/40">•</span>
+              <span className="text-indigo-200 text-xs sm:text-sm font-normal">{dailyQuote.authorRole}</span>
+            </div>
+          </div>
+
+          {/* Two Energy & Application Insight Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-sm text-xs space-y-1">
+              <div className="flex items-center space-x-1.5 text-amber-300 font-bold">
+                <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>Your Energy & Confidence Booster:</span>
+              </div>
+              <p className="text-slate-200 leading-relaxed">
+                {dailyQuote.energyBoostReason}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 backdrop-blur-sm text-xs space-y-1">
+              <div className="flex items-center space-x-1.5 text-teal-300 font-bold">
+                <Compass className="w-3.5 h-3.5" />
+                <span>How to Apply This Today:</span>
+              </div>
+              <p className="text-slate-200 leading-relaxed">
+                {dailyQuote.actionableApplication}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer: Tags & XP Claim */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {dailyQuote.tags.map((t) => (
+                <span key={t} className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-indigo-300 text-[11px]">
+                  #{t}
+                </span>
+              ))}
+            </div>
+
+            <button
+              onClick={handleClaimQuoteXp}
+              disabled={hasClaimedQuoteXp}
+              className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                hasClaimedQuoteXp
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
+                  : 'bg-gradient-to-r from-amber-500 to-teal-500 hover:from-amber-600 hover:to-teal-600 text-white shadow-md active:scale-95'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>{hasClaimedQuoteXp ? 'Inspiration Claimed (+10 XP)' : 'Claim Daily Inspiration (+10 XP)'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Welcome Banner & Hero */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-10 shadow-xl border border-indigo-700/40">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -192,6 +455,193 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
               {user.sessionsCompleted} Sessions
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2.5 DAILY LEARNING VAULT: Word of the Day & Executive Micro-Habit */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Card 1: Word of the Day */}
+        <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-5">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-xs font-bold">
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Daily Word of the Day</span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {dailyWord.category}
+              </span>
+            </div>
+
+            {/* Word Banner with Audio Pronunciation */}
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60">
+              <div>
+                <div className="flex items-baseline space-x-2">
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {dailyWord.word}
+                  </h3>
+                  <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
+                    {dailyWord.phonetic}
+                  </span>
+                </div>
+                <span className="text-xs font-medium text-slate-500 italic">
+                  {dailyWord.partOfSpeech}
+                </span>
+              </div>
+
+              <button
+                onClick={handlePronounceWord}
+                title="Hear correct pronunciation"
+                className={`p-3 rounded-2xl transition shadow-sm flex items-center justify-center ${
+                  isSpeakingWord
+                    ? 'bg-teal-600 text-white animate-pulse'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                <Volume2 className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Plain English Meaning */}
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                Meaning:
+              </span>
+              <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">
+                {dailyWord.meaning}
+              </p>
+            </div>
+
+            {/* Workplace and Casual Sentences */}
+            <div className="space-y-2 text-xs">
+              <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                <strong className="text-indigo-900 dark:text-indigo-300 block mb-0.5">
+                  💼 Executive Workplace Example:
+                </strong>
+                <p className="text-slate-700 dark:text-slate-300 italic">
+                  "{dailyWord.workplaceExample}"
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                <strong className="text-slate-700 dark:text-slate-300 block mb-0.5">
+                  💬 Everyday Casual Example:
+                </strong>
+                <p className="text-slate-600 dark:text-slate-400 italic">
+                  "{dailyWord.casualExample}"
+                </p>
+              </div>
+            </div>
+
+            {/* Synonyms */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-xs font-semibold text-slate-400 mr-1">Synonyms:</span>
+              {dailyWord.synonyms.map((s) => (
+                <span
+                  key={s}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Action to Save to Vocab Vault */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            <button
+              onClick={handleSaveWordToVault}
+              disabled={hasSavedWord}
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                hasSavedWord
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 cursor-default'
+                  : 'bg-teal-600 hover:bg-teal-700 text-white shadow-md active:scale-95'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{hasSavedWord ? 'Saved to Vocab Vault (+10 XP)' : 'Save to Vocab Vault (+10 XP)'}</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('practice')}
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 transition flex items-center space-x-1"
+            >
+              <span>Practice Now</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Executive Micro-Habit & Power Warm-Up */}
+        <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-5">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                <Lightbulb className="w-3.5 h-3.5" />
+                <span>Executive Micro-Habit of the Day</span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {dailyHabit.category}
+              </span>
+            </div>
+
+            <h3 className="text-xl font-black text-slate-900 dark:text-white">
+              {dailyHabit.title}
+            </h3>
+
+            {/* Avoid vs. Power Alternative Comparison */}
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/40 text-xs">
+                <div className="flex items-center space-x-1.5 text-rose-700 dark:text-rose-400 font-bold mb-1">
+                  <span>✕ Avoid / Weak Habit:</span>
+                </div>
+                <p className="text-slate-700 dark:text-slate-300 font-medium">
+                  "{dailyHabit.problemPhrase}"
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40 text-xs">
+                <div className="flex items-center space-x-1.5 text-emerald-700 dark:text-emerald-400 font-bold mb-1">
+                  <span>✓ Executive Power Alternative:</span>
+                </div>
+                <p className="text-slate-800 dark:text-slate-200 font-bold">
+                  "{dailyHabit.powerAlternative}"
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-xs">
+              <strong className="text-slate-500 block">Why this transforms your impact:</strong>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                {dailyHabit.whyItWorks}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300">
+              <strong className="text-amber-600 dark:text-amber-400 block mb-0.5">
+                🎯 Today's Quick Challenge:
+              </strong>
+              <span>{dailyHabit.quickChallenge}</span>
+            </div>
+          </div>
+
+          {/* Quick Launch Power Vocal Warm-Up */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            <button
+              onClick={() => {
+                setIsWarmUpModalOpen(true);
+                startWarmUpStep(0);
+              }}
+              className="py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-2 active:scale-95"
+            >
+              <Mic className="w-4 h-4" />
+              <span>🎤 60s Vocal Warm-Up (+15 XP)</span>
+            </button>
+
+            <span className="text-[11px] text-slate-400 font-medium">
+              3 steps • 60 seconds
             </span>
           </div>
         </div>
@@ -475,6 +925,123 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* 6. 60-SECOND POWER VOCAL & CONFIDENCE WARM-UP MODAL */}
+      {isWarmUpModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center font-bold">
+                  <Mic className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
+                    60s Vocal & Confidence Warm-Up
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    Step {warmUpStepIdx + 1} of {VOCAL_WARM_UP_STEPS.length} • {VOCAL_WARM_UP_STEPS[warmUpStepIdx].title}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsWarmUpModalOpen(false);
+                  setIsWarmUpTimerActive(false);
+                }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Step Progress Pills */}
+            <div className="flex items-center space-x-2">
+              {VOCAL_WARM_UP_STEPS.map((s, idx) => (
+                <div
+                  key={s.id}
+                  className={`flex-1 h-2 rounded-full transition-all ${
+                    idx === warmUpStepIdx
+                      ? 'bg-gradient-to-r from-teal-500 to-indigo-600'
+                      : idx < warmUpStepIdx
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-100 dark:bg-slate-800'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Active Warm-Up Content */}
+            {(() => {
+              const currentStep = VOCAL_WARM_UP_STEPS[warmUpStepIdx];
+              return (
+                <div className="space-y-4 text-center">
+                  <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 space-y-2">
+                    <span className="text-xs uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                      Step {currentStep.stepNumber}: {currentStep.title}
+                    </span>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                      {currentStep.instructions}
+                    </p>
+
+                    {currentStep.drillText && (
+                      <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-300 dark:border-indigo-700 text-base font-bold text-slate-900 dark:text-white italic font-mono mt-3">
+                        {currentStep.drillText}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Timer Display */}
+                  <div className="py-2">
+                    <div className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 font-mono text-3xl font-black text-slate-900 dark:text-white">
+                      <span>{warmUpTimer}s</span>
+                    </div>
+                    <span className="block text-xs text-slate-400 mt-1">
+                      {isWarmUpTimerActive ? 'Engaged in drill...' : warmUpTimer === 0 ? 'Step Complete!' : 'Press start to engage'}
+                    </span>
+                  </div>
+
+                  {/* Benefit */}
+                  <p className="text-xs text-teal-600 dark:text-teal-400 font-semibold italic">
+                    ✨ Benefit: {currentStep.benefit}
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  setIsWarmUpTimerActive((a) => !a);
+                }}
+                className="py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 transition flex items-center space-x-1.5"
+              >
+                <span>{isWarmUpTimerActive ? 'Pause' : 'Start Timer'}</span>
+              </button>
+
+              {warmUpStepIdx < VOCAL_WARM_UP_STEPS.length - 1 ? (
+                <button
+                  onClick={() => startWarmUpStep(warmUpStepIdx + 1)}
+                  className="py-2.5 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-1.5"
+                >
+                  <span>Next Step →</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleFinishWarmUp}
+                  className="py-2.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Finish & Claim +15 XP</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
