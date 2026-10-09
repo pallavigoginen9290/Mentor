@@ -204,118 +204,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* 0. QUOTATION OF THE DAY (Top Daily Motivation & Confidence Booster) */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/30 shadow-2xl p-6 sm:p-8 text-white transition-all">
-        {/* Decorative background glows */}
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-5">
-          {/* Top Bar: Date, Theme & Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300 text-xs font-bold tracking-wide">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Daily Inspiration • {dayString}</span>
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-indigo-200 text-xs font-semibold">
-                {dailyQuote.category}
-              </span>
-            </div>
-
-            {/* Quick Actions (Listen, Next, Copy) */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleToggleSpeechQuote}
-                title={isSpeakingQuote ? 'Stop reading' : 'Listen aloud'}
-                className={`p-2 rounded-xl border text-xs font-semibold transition flex items-center space-x-1.5 ${
-                  isSpeakingQuote
-                    ? 'bg-teal-500 text-white border-teal-400 shadow-md animate-pulse'
-                    : 'bg-white/10 hover:bg-white/20 border-white/15 text-indigo-200'
-                }`}
-              >
-                {isSpeakingQuote ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                <span className="hidden sm:inline">{isSpeakingQuote ? 'Playing' : 'Listen'}</span>
-              </button>
-
-              <button
-                onClick={handleNextQuote}
-                title="Get another quote for more energy"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition flex items-center space-x-1.5"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">Next</span>
-              </button>
-
-              <button
-                onClick={handleCopyQuote}
-                title="Copy quote"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition"
-              >
-                {isCopied ? <Check className="w-4 h-4 text-teal-400" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
+      {/* 0. COMPACT DAILY QUOTATION BANNER (2-3 lines height, full horizontal width) */}
+      <div className="w-full relative rounded-2xl overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 shadow-md px-4 sm:px-6 py-3 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Left: Quote Icon + Quote Text + Author */}
+        <div className="flex items-start sm:items-center space-x-3 min-w-0 flex-1">
+          <div className="w-8 h-8 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+            <Sparkles className="w-4 h-4" />
           </div>
 
-          {/* Main Quote Presentation */}
-          <div className="space-y-3">
-            <div className="text-4xl sm:text-5xl font-serif text-amber-400/80 leading-none select-none">“</div>
-            <blockquote className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug sm:leading-tight">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-semibold text-slate-100 tracking-tight leading-snug">
+              <span className="text-amber-400 font-serif text-base mr-1">“</span>
               {dailyQuote.quote}
-            </blockquote>
-            <div className="flex items-center space-x-2 pt-1 text-sm sm:text-base font-semibold text-teal-300">
-              <span>— {dailyQuote.author}</span>
-              <span className="text-white/40">•</span>
-              <span className="text-indigo-200 text-xs sm:text-sm font-normal">{dailyQuote.authorRole}</span>
-            </div>
+              <span className="text-amber-400 font-serif text-base ml-1">”</span>
+              <span className="text-teal-300 font-bold ml-2 text-xs inline-block">
+                — {dailyQuote.author}
+              </span>
+            </p>
           </div>
+        </div>
 
-          {/* Two Energy & Application Insight Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-sm text-xs space-y-1">
-              <div className="flex items-center space-x-1.5 text-amber-300 font-bold">
-                <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span>Your Energy & Confidence Booster:</span>
-              </div>
-              <p className="text-slate-200 leading-relaxed">
-                {dailyQuote.energyBoostReason}
-              </p>
-            </div>
+        {/* Right: Compact Action Buttons (Listen, Next, Copy) */}
+        <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
+          <button
+            onClick={handleToggleSpeechQuote}
+            title={isSpeakingQuote ? 'Stop reading' : 'Listen to quote'}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center space-x-1 ${
+              isSpeakingQuote
+                ? 'bg-teal-500 text-white border-teal-400 shadow animate-pulse'
+                : 'bg-white/10 hover:bg-white/20 border-white/15 text-indigo-200'
+            }`}
+          >
+            {isSpeakingQuote ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            <span className="text-[11px]">{isSpeakingQuote ? 'Stop' : 'Listen'}</span>
+          </button>
 
-            <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 backdrop-blur-sm text-xs space-y-1">
-              <div className="flex items-center space-x-1.5 text-teal-300 font-bold">
-                <Compass className="w-3.5 h-3.5" />
-                <span>How to Apply This Today:</span>
-              </div>
-              <p className="text-slate-200 leading-relaxed">
-                {dailyQuote.actionableApplication}
-              </p>
-            </div>
-          </div>
+          <button
+            onClick={handleNextQuote}
+            title="Next inspirational quote"
+            className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition flex items-center space-x-1"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="text-[11px]">Next</span>
+          </button>
 
-          {/* Footer: Tags & XP Claim */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {dailyQuote.tags.map((t) => (
-                <span key={t} className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-indigo-300 text-[11px]">
-                  #{t}
-                </span>
-              ))}
-            </div>
-
-            <button
-              onClick={handleClaimQuoteXp}
-              disabled={hasClaimedQuoteXp}
-              className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
-                hasClaimedQuoteXp
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
-                  : 'bg-gradient-to-r from-amber-500 to-teal-500 hover:from-amber-600 hover:to-teal-600 text-white shadow-md active:scale-95'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>{hasClaimedQuoteXp ? 'Inspiration Claimed (+10 XP)' : 'Claim Daily Inspiration (+10 XP)'}</span>
-            </button>
-          </div>
+          <button
+            onClick={handleCopyQuote}
+            title="Copy quote"
+            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 text-xs font-semibold transition"
+          >
+            {isCopied ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 
