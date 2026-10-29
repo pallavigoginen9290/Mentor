@@ -63,12 +63,13 @@ export function App() {
 
   // Initialize and check streak on startup
   useEffect(() => {
+    const streakResult = storageService.checkStreak();
     refreshState();
-    const { streak: _streak, recovered } = storageService.checkStreak();
-    if (recovered && user.sessionsCompleted > 0) {
+    const currUser = storageService.getUser();
+    if (streakResult.broken && currUser.sessionsCompleted > 0) {
       setBannerNotice({
         title: 'New Day, Fresh Start!',
-        message: "No worries! Let's build up an exciting new practice streak together today.",
+        message: "No worries! Complete any quick practice drill today to ignite a new streak.",
         icon: '🌱',
       });
     }
@@ -86,8 +87,14 @@ export function App() {
     storageService.recordSession(session);
     refreshState();
 
-    // Check level up celebration
     const updatedUser = storageService.getUser();
+    setBannerNotice({
+      title: `🔥 ${updatedUser.streakDays} ${updatedUser.streakDays === 1 ? 'Day' : 'Days'} Streak! (+${session.xpEarned || 20} XP)`,
+      message: updatedUser.streakDays > 1
+        ? `Incredible consistency! You have extended your streak to ${updatedUser.streakDays} days.`
+        : `Day 1 complete! Practice again tomorrow to keep your flame blazing.`,
+      icon: '🔥',
+    });
     if (updatedUser.currentLevel > user.currentLevel) {
       try {
         confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
@@ -175,6 +182,7 @@ export function App() {
   };
 
   const handleCompleteDailyChallenge = (xpReward: number) => {
+    storageService.recordPracticeActivity();
     storageService.addXp(xpReward);
     refreshState();
     try {
@@ -182,9 +190,10 @@ export function App() {
     } catch (e) {
       // ignore
     }
+    const updated = storageService.getUser();
     setBannerNotice({
-      title: `Daily Challenge Mastered! (+${xpReward} XP)`,
-      message: 'Your spontaneous communication is noticeably improving.',
+      title: `🔥 Daily Challenge Mastered! (+${xpReward} XP)`,
+      message: `Streak active: ${updated.streakDays} ${updated.streakDays === 1 ? 'Day' : 'Days'}! Your spontaneous communication is noticeably improving.`,
       icon: '🔥',
     });
   };

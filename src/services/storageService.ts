@@ -75,6 +75,46 @@ const INITIAL_SETTINGS: AppSettings = {
   dailyXpGoal: 100,
 };
 
+export function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getYesterdayDateString(d: Date = new Date()): string {
+  const yesterday = new Date(d);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getLocalDateString(yesterday);
+}
+
+export function calculateStreakFromDates(dates: string[]): number {
+  if (!dates || dates.length === 0) return 0;
+  const uniqueDates = new Set(dates);
+  const today = getLocalDateString();
+  const yesterday = getYesterdayDateString();
+
+  let checkDateStr = '';
+  if (uniqueDates.has(today)) {
+    checkDateStr = today;
+  } else if (uniqueDates.has(yesterday)) {
+    checkDateStr = yesterday;
+  } else {
+    return 0; // Streak broken because neither today nor yesterday had practice
+  }
+
+  let streak = 0;
+  const [y, m, d] = checkDateStr.split('-').map(Number);
+  const curr = new Date(y, m - 1, d);
+
+  while (uniqueDates.has(getLocalDateString(curr))) {
+    streak += 1;
+    curr.setDate(curr.getDate() - 1);
+  }
+
+  return streak;
+}
+
 export const storageService = {
   getUser(): UserProfile {
     try {
@@ -97,6 +137,35 @@ export const storageService = {
           user.gamesCompleted = games.length;
           modified = true;
         }
+
+        // Initialize and synchronize activePracticeDates
+        if (!user.activePracticeDates) {
+          user.activePracticeDates = [];
+          modified = true;
+        }
+
+        const sessionDates = sessions
+          .map((s) => (s.date ? getLocalDateString(new Date(s.date)) : ''))
+          .filter(Boolean);
+        const gameDates = games
+          .map((g) => (g.date ? getLocalDateString(new Date(g.date)) : ''))
+          .filter(Boolean);
+        const allRecordedDates = Array.from(
+          new Set([...user.activePracticeDates, ...sessionDates, ...gameDates])
+        );
+
+        if (allRecordedDates.length !== user.activePracticeDates.length) {
+          user.activePracticeDates = allRecordedDates;
+          modified = true;
+        }
+
+        // Calculate and sync exact streak
+        const realStreak = calculateStreakFromDates(user.activePracticeDates);
+        if (user.streakDays !== realStreak) {
+          user.streakDays = realStreak;
+          modified = true;
+        }
+
         if (modified) {
           this.saveUser(user);
         }
@@ -105,7 +174,13 @@ export const storageService = {
     } catch (e) {
       console.error(e);
     }
-    const freshUser: UserProfile = { ...INITIAL_USER, name: 'Pallavi' };
+    const freshUser: UserProfile = {
+      ...INITIAL_USER,
+      name: 'Pallavi',
+      streakDays: 0,
+      activePracticeDates: [],
+      lastActiveDate: getLocalDateString(),
+    };
     this.saveUser(freshUser);
     return freshUser;
   },
@@ -268,6 +343,7 @@ export const storageService = {
 
     this.saveUser(user);
     this.addXp(session.xpEarned || 20);
+    this.recordPracticeActivity();
 
     if (user.sessionsCompleted >= 1) {
       this.unlockBadge('first_practice');
@@ -295,6 +371,7 @@ export const storageService = {
     user.gamesCompleted = games.length;
     this.saveUser(user);
     this.addXp(game.xpEarned);
+    this.recordPracticeActivity();
 
     if (game.gameType === 'thirty_seconds' && game.score >= 8) {
       this.unlockBadge('quick_thinker');
@@ -316,31 +393,64 @@ export const storageService = {
     return false;
   },
 
-  checkStreak(): { streak: number; recovered: boolean } {
+  recordPracticeActivity(): { streak: number; streakExtended: boolean; isFirstToday: boolean } {
     const user = this.getUser();
-    const today = new Date().toISOString().split('T')[0];
-    const lastActive = user.lastActiveDate;
+    const today = getLocalDateString();
 
-    if (lastActive === today) {
-      return { streak: user.streakDays, recovered: false };
+    if (!user.activePracticeDates) {
+      user.activePracticeDates = [];
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const alreadyPracticedToday = user.activePracticeDates.includes(today);
+    if (!alreadyPracticedToday) {
+      user.activePracticeDates.push(today);
+    }
+
+    user.lastPracticeDate = today;
+    user.lastActiveDate = today;
+
+    const oldStreak = user.streakDays || 0;
+    const newStreak = calculateStreakFromDates(user.activePracticeDates);
+    user.streakDays = newStreak;
+
+    this.saveUser(user);
+
+    if (newStreak >= 7) {
+      this.unlockBadge('streak_7');
+    }
+    if (newStreak >= 30) {
+      this.unlockBadge('streak_30');
+    }
+
+    return {
+      streak: newStreak,
+      streakExtended: newStreak > oldStreak,
+      isFirstToday: !alreadyPracticedToday,
+    };
+  },
+
+  checkStreak(): { streak: number; recovered: boolean; broken: boolean } {
+    const user = this.getUser();
+    const today = getLocalDateString();
+    let broken = false;
     let recovered = false;
 
-    if (lastActive === yesterday) {
-      user.streakDays += 1;
+    // Reset daily XP if day changed
+    if (user.lastActiveDate !== today) {
       user.todayXp = 0;
       user.lastActiveDate = today;
-    } else {
-      user.streakDays = 1;
-      user.todayXp = 0;
-      user.lastActiveDate = today;
-      recovered = true;
+    }
+
+    const realStreak = calculateStreakFromDates(user.activePracticeDates || []);
+    if (user.streakDays !== realStreak) {
+      if (user.streakDays > realStreak && realStreak === 0) {
+        broken = true;
+      }
+      user.streakDays = realStreak;
     }
 
     this.saveUser(user);
-    return { streak: user.streakDays, recovered };
+    return { streak: user.streakDays, recovered, broken };
   },
 
   exportData(): string {

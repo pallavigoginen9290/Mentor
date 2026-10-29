@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { DailyChallenge, MysteryScenario, FeedbackReport, AppSettings, UserProfile } from '../../types';
-import { DAILY_CHALLENGES, MYSTERY_SCENARIOS } from '../../data/scenarios';
+import {
+  DAILY_CHALLENGES,
+  MYSTERY_SCENARIOS,
+  getTodayChallenge,
+  getTodayMysteryScenario,
+} from '../../data/scenarios';
 import { aiService } from '../../services/aiService';
+import { storageService } from '../../services/storageService';
 import {
   Flame,
   HelpCircle,
@@ -31,13 +37,18 @@ export const ChallengesView: React.FC<ChallengesViewProps> = ({
     initialOpenMystery ? 'mystery' : 'daily'
   );
 
-  // Daily Challenge state
-  const [selectedChallenge, setSelectedChallenge] = useState<DailyChallenge>(DAILY_CHALLENGES[0]);
+  // Daily Challenge state - automatically defaults to today's rotating challenge
+  const [selectedChallenge, setSelectedChallenge] = useState<DailyChallenge>(() => getTodayChallenge());
   const [challengeInput, setChallengeInput] = useState('');
   const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
 
-  // Mystery Scenario state
-  const [mysteryIdx, setMysteryIdx] = useState(0);
+  // Mystery Scenario state - automatically defaults to today's rotating mystery crisis
+  const [mysteryIdx, setMysteryIdx] = useState(() => {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+    return dayOfYear % MYSTERY_SCENARIOS.length;
+  });
   const currentMystery: MysteryScenario = MYSTERY_SCENARIOS[mysteryIdx % MYSTERY_SCENARIOS.length];
   const [mysteryResponse, setMysteryResponse] = useState('');
   const [isSubmittingMystery, setIsSubmittingMystery] = useState(false);
@@ -88,6 +99,8 @@ export const ChallengesView: React.FC<ChallengesViewProps> = ({
         settings
       );
 
+      storageService.recordPracticeActivity();
+      storageService.addXp(35);
       onOpenFeedback(feedback, 35);
       setMysteryResponse('');
     } catch (err) {

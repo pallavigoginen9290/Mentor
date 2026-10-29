@@ -9,8 +9,10 @@ export const INITIAL_USER: UserProfile = {
   xp: 0,
   todayXp: 0,
   dailyXpGoal: 100,
-  streakDays: 1,
+  streakDays: 0,
   lastActiveDate: new Date().toISOString().split('T')[0],
+  lastPracticeDate: undefined,
+  activePracticeDates: [],
   sessionsCompleted: 0,
   gamesCompleted: 0,
   goals: [

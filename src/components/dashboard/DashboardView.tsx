@@ -7,6 +7,7 @@ import {
   getDailyInspiration,
   VOCAL_WARM_UP_STEPS,
 } from '../../data/dailyInspiration';
+import { getTodayChallenge, SCENARIOS } from '../../data/scenarios';
 import confetti from 'canvas-confetti';
 import {
   Flame,
@@ -177,6 +178,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleFinishWarmUp = () => {
     setWarmUpCompleted(true);
     setIsWarmUpTimerActive(false);
+    storageService.recordPracticeActivity();
     storageService.addXp(15);
     onRefreshState?.();
     try {
@@ -187,18 +189,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }, 1500);
   };
 
-  // Compute recommendation
-  const mockScores: ScoresBreakdown = {
-    grammar: 7.2,
-    vocabulary: 6.8,
-    clarity: 8.5,
-    confidence: 7.0,
-    professionalTone: 8.0,
-    relevance: 8.2,
-    naturalness: 6.5,
-    sentenceStructure: 7.5,
-  };
-  const recommendation = getRecommendations(mockScores, user.weakestSkill);
+  const todayChallenge = getTodayChallenge();
+
+  // Dynamically compute recommendation based on user's real session performance or daily rotating focus
+  const recommendation = React.useMemo(() => {
+    if (recentSessions.length > 0 && recentSessions[0].feedback) {
+      return getRecommendations(recentSessions[0].feedback.scores, user.weakestSkill);
+    }
+    const dayOfWeek = new Date().getDay();
+    const dailyFocusMap: (keyof ScoresBreakdown)[] = [
+      'confidence',        // Sunday: Confidence & Assertiveness
+      'naturalness',       // Monday: Spontaneous Speaking & Quick Thinking
+      'professionalTone',  // Tuesday: Workplace Diplomacy & Status Reports
+      'relevance',         // Wednesday: STAR Interview Questions
+      'vocabulary',        // Thursday: Executive Vocabulary & Word Choice
+      'clarity',           // Friday: Structured Communication & Brevity
+      'grammar',           // Saturday: Grammar & Sentence Polish
+    ];
+    const focusKey = dailyFocusMap[dayOfWeek];
+    const baselineScores: ScoresBreakdown = {
+      grammar: 7.5,
+      vocabulary: 7.5,
+      clarity: 7.5,
+      confidence: 7.5,
+      professionalTone: 7.5,
+      relevance: 7.5,
+      naturalness: 7.5,
+      sentenceStructure: 7.5,
+    };
+    baselineScores[focusKey] = 6.0;
+    return getRecommendations(baselineScores, focusKey);
+  }, [recentSessions, user.weakestSkill]);
+
+  // Dynamically select today's featured practice scenario
+  const todayFeaturedScenario = React.useMemo(() => {
+    const featuredList = SCENARIOS.filter(
+      (s) => s.category === 'workplace' || s.itSpecific || s.category === 'difficult'
+    );
+    const dayOfYear = Math.floor(
+      (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000
+    );
+    return featuredList[dayOfYear % featuredList.length] || SCENARIOS[0];
+  }, []);
 
   const goalPercentage = Math.min(100, Math.round((user.todayXp / user.dailyXpGoal) * 100));
 
@@ -350,7 +382,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">Streak</span>
             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              {user.streakDays} Days
+              {user.streakDays} {user.streakDays === 1 ? 'Day' : 'Days'}
             </span>
           </div>
         </div>
@@ -628,8 +660,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigate('challenges')}
               className="w-full py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs hover:bg-indigo-100 transition flex items-center justify-center space-x-1"
             >
-              <span>Complete Daily Challenge (+30 XP)</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span className="truncate">Today: {todayChallenge.title} (+{todayChallenge.rewardXp} XP)</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
         </div>
@@ -764,25 +796,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Spontaneous Think Speak */}
+          {/* Daily Rotating Curated Arena */}
           <div
-            onClick={() => onStartScenarioById('wp_reporting_delay')}
+            onClick={() => onStartScenarioById(todayFeaturedScenario.id)}
             className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group flex flex-col justify-between"
           >
             <div>
               <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                 <Flame className="w-5 h-5" />
               </div>
+              <div className="flex items-center space-x-2 mb-1.5">
+                <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  Featured Today
+                </span>
+                <span className="text-[11px] text-slate-400 font-semibold truncate">
+                  {todayFeaturedScenario.role}
+                </span>
+              </div>
               <h3 className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-amber-600 transition-colors">
-                Reporting a Delay Tactfully
+                {todayFeaturedScenario.title}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                Step into a high-stakes conversation where a PM asks about an overdue dashboard.
-                Frame setbacks with poise.
+                {todayFeaturedScenario.description}
               </p>
             </div>
             <div className="mt-5 flex items-center justify-between text-xs font-bold text-amber-600 dark:text-amber-400">
-              <span>Intermediate • +20 XP</span>
+              <span>{todayFeaturedScenario.difficulty} • +20 XP</span>
               <span className="group-hover:translate-x-1 transition-transform">Practice →</span>
             </div>
           </div>

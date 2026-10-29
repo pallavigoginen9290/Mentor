@@ -138,6 +138,8 @@ export interface UserProfile {
   dailyXpGoal: number;
   streakDays: number;
   lastActiveDate: string; // YYYY-MM-DD
+  lastPracticeDate?: string; // YYYY-MM-DD when practice was completed
+  activePracticeDates?: string[]; // Array of unique YYYY-MM-DD dates with practice
   sessionsCompleted: number;
   gamesCompleted: number;
   goals: string[];
