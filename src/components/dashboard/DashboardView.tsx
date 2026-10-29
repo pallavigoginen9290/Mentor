@@ -33,6 +33,8 @@ import {
   Lightbulb,
   Mic,
   Compass,
+  PhoneCall,
+  Languages,
   X,
 } from 'lucide-react';
 
@@ -427,6 +429,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
               {user.sessionsCompleted} Sessions
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2.2 PRODUCTION CORE PILLARS: Voice Partner, Duolingo Learning Path, Telugu Bridge */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Card 1: AI Voice Partner */}
+        <div
+          onClick={() => onNavigate('voice_partner')}
+          className="group cursor-pointer rounded-3xl p-6 bg-gradient-to-br from-indigo-900/90 via-indigo-950 to-slate-900 border border-indigo-500/30 hover:border-indigo-400 shadow-xl text-white relative overflow-hidden transition-all duration-300 transform hover:-translate-y-1"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-400/30 text-teal-300 flex items-center justify-center">
+                <PhoneCall className="w-6 h-6 animate-pulse" />
+              </div>
+              <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-1 rounded-full bg-teal-400/20 text-teal-200 border border-teal-400/30">
+                Live 2-Way Audio
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold group-hover:text-teal-300 transition-colors">
+                AI Voice Partner
+              </h3>
+              <p className="text-xs text-indigo-200/80 leading-relaxed mt-1">
+                Real-time telephone call simulation with natural turn-taking, spoken replies & voice interruption.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center text-xs font-bold text-teal-300 group-hover:translate-x-1 transition-transform">
+              <span>Start Voice Call</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Duolingo-Style Structured Path */}
+        <div
+          onClick={() => onNavigate('learn')}
+          className="group cursor-pointer rounded-3xl p-6 bg-gradient-to-br from-indigo-900/90 via-slate-900 to-indigo-950 border border-indigo-500/30 hover:border-indigo-400 shadow-xl text-white relative overflow-hidden transition-all duration-300 transform hover:-translate-y-1"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-1 rounded-full bg-indigo-400/20 text-indigo-200 border border-indigo-400/30">
+                Levels 1 - 7
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold group-hover:text-indigo-300 transition-colors">
+                Structured Learning Path
+              </h3>
+              <p className="text-xs text-indigo-200/80 leading-relaxed mt-1">
+                Bite-sized interactive exercises, sentence builders, grammar polish, and personal mistake revision.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center text-xs font-bold text-indigo-300 group-hover:translate-x-1 transition-transform">
+              <span>Explore Curriculum</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Telugu to English Bridge */}
+        <div
+          onClick={() => onNavigate('telugu_translate')}
+          className="group cursor-pointer rounded-3xl p-6 bg-gradient-to-br from-teal-950 via-slate-900 to-indigo-950 border border-teal-500/30 hover:border-teal-400 shadow-xl text-white relative overflow-hidden transition-all duration-300 transform hover:-translate-y-1"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-400/30 text-teal-300 flex items-center justify-center">
+                <Languages className="w-6 h-6" />
+              </div>
+              <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-1 rounded-full bg-teal-400/20 text-teal-200 border border-teal-400/30">
+                Bilingual Bridge
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold group-hover:text-teal-300 transition-colors">
+                Telugu to English Engine
+              </h3>
+              <p className="text-xs text-teal-100/80 leading-relaxed mt-1">
+                Think in Telugu? Type script or transliteration (e.g. "nenu office ki late"), get executive English!
+              </p>
+            </div>
+            <div className="pt-2 flex items-center text-xs font-bold text-teal-300 group-hover:translate-x-1 transition-transform">
+              <span>Translate & Practice</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </div>
           </div>
         </div>
       </div>

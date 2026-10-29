@@ -1,5 +1,8 @@
 export type NavigationTab =
   | 'dashboard'
+  | 'learn'
+  | 'voice_partner'
+  | 'telugu_translate'
   | 'practice'
   | 'workplace'
   | 'interview'
@@ -199,3 +202,74 @@ export interface MysteryScenario {
   mentorPrompt: string;
   decisionPoints: string[];
 }
+
+export type ExerciseType =
+  | 'multiple_choice'
+  | 'fill_in_the_blank'
+  | 'sentence_scramble'
+  | 'grammar_fix'
+  | 'telugu_to_english'
+  | 'audio_listen'
+  | 'repeat_speak'
+  | 'dialogue_complete';
+
+export interface Exercise {
+  id: string;
+  type: ExerciseType;
+  prompt: string;
+  contextHint?: string;
+  audioText?: string;
+  teluguSource?: string;
+  teluguTransliteration?: string;
+  options?: string[]; // for multiple choice, sentence scramble words, etc.
+  scrambleWords?: string[]; // words to click/tap in correct order
+  correctAnswer: string | string[]; // target sentence or option
+  explanation: string;
+  keyTip: string;
+}
+
+export interface Lesson {
+  id: string;
+  unitId: string;
+  title: string;
+  description: string;
+  xpReward: number;
+  exercises: Exercise[];
+}
+
+export interface LearningUnit {
+  id: string;
+  levelId: number;
+  unitNumber: number;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  lessons: Lesson[];
+}
+
+export interface LearningLevel {
+  id: number; // 1 to 7
+  title: string;
+  subtitle: string;
+  cefrLevel: string; // A1, A2, B1, B2, C1, C2, Executive
+  description: string;
+  color: string;
+  units: LearningUnit[];
+}
+
+export interface UserLearningProgress {
+  completedLessonIds: string[];
+  currentLevel: number;
+  currentUnitId: string;
+  mistakesQueue: Array<{
+    exerciseId: string;
+    lessonId: string;
+    exercise: Exercise;
+    userAnswer: string;
+    timestamp: string;
+  }>;
+  totalStars: number;
+  levelCrowns: Record<number, number>; // levelId -> crowns earned
+}
+

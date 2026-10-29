@@ -23,6 +23,9 @@ import { Header } from './components/layout/Header';
 import { Navigation } from './components/layout/Navigation';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PracticeView } from './components/practice/PracticeView';
+import { LearnView } from './components/learn/LearnView';
+import { VoicePartnerView } from './components/voice/VoicePartnerView';
+import { TeluguTranslateView } from './components/telugu/TeluguTranslateView';
 import { GamesView } from './components/games/GamesView';
 import { ChallengesView } from './components/challenges/ChallengesView';
 import { ProgressView } from './components/progress/ProgressView';
@@ -257,7 +260,7 @@ export function App() {
         />
 
         {/* Dynamic Main Workspace View */}
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-x-hidden pb-20 lg:pb-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               user={user}
@@ -271,6 +274,33 @@ export function App() {
                 }
               }}
               onRefreshState={refreshState}
+            />
+          )}
+
+          {activeTab === 'learn' && (
+            <LearnView
+              user={user}
+              settings={settings}
+              onRefreshState={refreshState}
+              onNavigateToVoice={() => handleSelectTab('voice_partner')}
+            />
+          )}
+
+          {activeTab === 'voice_partner' && (
+            <VoicePartnerView
+              user={user}
+              settings={settings}
+              onRefreshState={refreshState}
+              onNavigateToPractice={() => handleSelectTab('practice')}
+            />
+          )}
+
+          {activeTab === 'telugu_translate' && (
+            <TeluguTranslateView
+              user={user}
+              settings={settings}
+              onRefreshState={refreshState}
+              onNavigateToVoice={() => handleSelectTab('voice_partner')}
             />
           )}
 

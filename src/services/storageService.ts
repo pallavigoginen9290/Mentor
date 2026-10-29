@@ -6,6 +6,8 @@ import {
   Badge,
   VocabularyItem,
   ScoresBreakdown,
+  UserLearningProgress,
+  Exercise,
 } from '../types';
 import {
   INITIAL_USER,
@@ -20,7 +22,18 @@ const STORAGE_KEYS = {
   GAMES: 'ai_mentor_games_v4',
   BADGES: 'ai_mentor_badges_v4',
   VOCABULARY: 'ai_mentor_vocab_v4',
+  LEARNING_PROGRESS: 'ai_mentor_learning_v1',
 };
+
+export const INITIAL_LEARNING_PROGRESS: UserLearningProgress = {
+  completedLessonIds: [],
+  currentLevel: 1,
+  currentUnitId: 'u1_1',
+  mistakesQueue: [],
+  totalStars: 0,
+  levelCrowns: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
+};
+
 
 // Purge legacy mock keys if present
 if (typeof window !== 'undefined') {
@@ -482,6 +495,61 @@ export const storageService = {
     }
   },
 
+  getLearningProgress(): UserLearningProgress {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LEARNING_PROGRESS);
+      return data ? { ...INITIAL_LEARNING_PROGRESS, ...JSON.parse(data) } : INITIAL_LEARNING_PROGRESS;
+    } catch (e) {
+      return INITIAL_LEARNING_PROGRESS;
+    }
+  },
+
+  saveLearningProgress(progress: UserLearningProgress) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LEARNING_PROGRESS, JSON.stringify(progress));
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  recordLessonCompleted(lessonId: string, levelId: number, xp: number): { isNew: boolean; newStars: number } {
+    const progress = this.getLearningProgress();
+    const isNew = !progress.completedLessonIds.includes(lessonId);
+    if (isNew) {
+      progress.completedLessonIds.push(lessonId);
+      progress.totalStars = (progress.totalStars || 0) + 1;
+      progress.levelCrowns[levelId] = (progress.levelCrowns[levelId] || 0) + 1;
+      this.saveLearningProgress(progress);
+      this.addXp(xp);
+      this.recordPracticeActivity();
+    }
+    return { isNew, newStars: progress.totalStars };
+  },
+
+  recordMistake(lessonId: string, exercise: Exercise, userAnswer: string) {
+    const progress = this.getLearningProgress();
+    if (!progress.mistakesQueue) progress.mistakesQueue = [];
+    const exists = progress.mistakesQueue.some((m) => m.exerciseId === exercise.id);
+    if (!exists) {
+      progress.mistakesQueue.push({
+        exerciseId: exercise.id,
+        lessonId,
+        exercise,
+        userAnswer,
+        timestamp: new Date().toISOString(),
+      });
+      this.saveLearningProgress(progress);
+    }
+  },
+
+  resolveMistake(exerciseId: string) {
+    const progress = this.getLearningProgress();
+    if (progress.mistakesQueue) {
+      progress.mistakesQueue = progress.mistakesQueue.filter((m) => m.exerciseId !== exerciseId);
+      this.saveLearningProgress(progress);
+    }
+  },
+
   resetAllData() {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
@@ -489,5 +557,6 @@ export const storageService = {
     localStorage.removeItem(STORAGE_KEYS.GAMES);
     localStorage.removeItem(STORAGE_KEYS.BADGES);
     localStorage.removeItem(STORAGE_KEYS.VOCABULARY);
+    localStorage.removeItem(STORAGE_KEYS.LEARNING_PROGRESS);
   },
 };

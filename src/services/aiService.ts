@@ -158,6 +158,92 @@ const VOCABULARY_SUGGESTIONS: Record<string, VocabularyItem[]> = {
 };
 
 export class AIService {
+  // General two-way chat response for Voice Partner and conversational tools
+  public async generateChatResponse(
+    messages: ChatMessage[],
+    systemPrompt: string,
+    settings: AppSettings
+  ): Promise<string> {
+    const lastUserMsg = messages.filter((m) => m.sender === 'user').slice(-1)[0]?.text || '';
+
+    // If Gemini key is available
+    if (settings.aiProvider === 'gemini' && settings.geminiApiKey) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${settings.geminiApiKey}`;
+        const contents = [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ text: "Understood. I am ready to converse naturally in character." }] },
+          ...messages.slice(-8).map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }],
+          })),
+        ];
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (reply) return reply;
+        }
+      } catch (err) {
+        console.warn('Gemini chat error, fallback to built-in mentor engine:', err);
+      }
+    }
+
+    // If OpenAI key is available
+    if (settings.aiProvider === 'openai' && settings.openaiApiKey) {
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${settings.openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...messages.slice(-8).map((m) => ({
+                role: m.sender === 'user' ? 'user' : 'assistant',
+                content: m.text,
+              })),
+            ],
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.choices?.[0]?.message?.content?.trim();
+          if (reply) return reply;
+        }
+      } catch (err) {
+        console.warn('OpenAI chat error, fallback to built-in mentor engine:', err);
+      }
+    }
+
+    // Intelligent Built-In Conversational Engine
+    const lower = lastUserMsg.toLowerCase();
+    if (lower.includes('project') || lower.includes('work') || lower.includes('task')) {
+      return `That sounds like a meaningful priority, Pallavi! How are you planning to structure your deliverables, and is there any dependency you need to align on with your team?`;
+    }
+    if (lower.includes('meeting') || lower.includes('call') || lower.includes('presentation')) {
+      return `Presenting your thoughts clearly in meetings is such a superpower. What is the one key takeaway you want your stakeholders to remember most?`;
+    }
+    if (lower.includes('interview') || lower.includes('job') || lower.includes('role')) {
+      return `That is a great milestone to practice for. Remember to structure your achievements using Situation, Action, and Result. Shall we practice an opening pitch for your background?`;
+    }
+    if (lower.includes('learn') || lower.includes('practice') || lower.includes('english')) {
+      return `Consistency is the secret to effortless fluency, Pallavi. You are already speaking with great clarity! What topic would you like to explore next?`;
+    }
+    if (lower.includes('hello') || lower.includes('hi') || lower.includes('good morning') || lower.includes('hey')) {
+      return `Hello Pallavi! It's so nice to hear from you. How has your day been treating you so far?`;
+    }
+
+    return `I appreciate you sharing that, Pallavi! That brings up an interesting angle. How do you normally navigate this when communicating with your colleagues?`;
+  }
+
   // Generate conversation turn
   public async generateMentorResponse(
     messages: ChatMessage[],
